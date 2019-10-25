@@ -34,12 +34,24 @@ public class Cycle {
 		return redAllInterval;
 	}
 
-	public void step(final int milliseconds) {
+	public State getCurrentState() {
+		return currentState;
+	}
+
+	public void step(final int milliseconds, final boolean shouldMoveToNextState) {
 		timerValue -= milliseconds;
 
 		if (timerValue <= 0) {
-			moveToNextState();
-			manageTrafficLights();
+			if (!(currentState.equals(State.RED_ALL1) || currentState.equals(State.RED_ALL2))) {
+				moveToNextState();
+				manageTrafficLights();
+			} else {
+				if (shouldMoveToNextState) {
+					moveToNextState();
+					manageTrafficLights();
+				}
+			}
+
 		}
 	}
 
@@ -80,7 +92,7 @@ public class Cycle {
 		trafficLights.get(1).setLight(Light.GREEN);
 	}
 
-	private enum State {
+	public enum State {
 		RED_ALL1, GREEN_FIRST, RED_ALL2, GREEN_SECOND;
 	}
 }

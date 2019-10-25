@@ -82,8 +82,8 @@ public class AdvancedIntersection {
 				verticalTrafficLight, Direction.DOWN_TO_UP));
 
 		trafficLights = new ArrayList<>();
-		trafficLights.add(horizontalTrafficLight);
-		trafficLights.add(verticalTrafficLight);
+		trafficLights.add(horizontalTrafficLight); // first
+		trafficLights.add(verticalTrafficLight); // second
 
 		trafficLightCycle = new Cycle(trafficLights, redAllInterval, greenOneDirectionInterval);
 
@@ -109,6 +109,10 @@ public class AdvancedIntersection {
 	}
 
 	private void probablyAddMovable() {
+		int probability = random.nextInt(10);
+		if (!(probability == 0)) {
+			return;
+		}
 		int laneNumber = random.nextInt(12);
 
 		if (laneNumber < 8) {
@@ -158,7 +162,39 @@ public class AdvancedIntersection {
 	}
 
 	private void manageTrafficLights() {
-		trafficLightCycle.step(stepInterval);
+		if (trafficLightCycle.getCurrentState().equals(Cycle.State.RED_ALL1)) { // horizontal traffic light will turn on
+			boolean isSomeLaneFilled = false;
+			for (int i = 4; i < 8; ++i) {
+				if (pedestrianLanes.get(i).isNonCrossingAreaFilled(1)) {
+					isSomeLaneFilled = true;
+				}
+			}
+			if (vehicleLanes.get(Direction.LEFT_TO_RIGHT).isNonCrossingAreaFilled(2)) {
+				isSomeLaneFilled = true;
+			}
+			if (vehicleLanes.get(Direction.RIGHT_TO_LEFT).isNonCrossingAreaFilled(2)) {
+				isSomeLaneFilled = true;
+			}
+			trafficLightCycle.step(stepInterval, isSomeLaneFilled);
+		} else if (trafficLightCycle.getCurrentState().equals(Cycle.State.RED_ALL2)) { // vertical traffic light will
+																						// turn on
+			boolean isSomeLaneFilled = false;
+			for (int i = 0; i < 4; ++i) {
+				if (pedestrianLanes.get(i).isNonCrossingAreaFilled(1)) {
+					isSomeLaneFilled = true;
+				}
+			}
+			if (vehicleLanes.get(Direction.UP_TO_DOWN).isNonCrossingAreaFilled(2)) {
+				isSomeLaneFilled = true;
+			}
+			if (vehicleLanes.get(Direction.DOWN_TO_UP).isNonCrossingAreaFilled(2)) {
+				isSomeLaneFilled = true;
+			}
+			trafficLightCycle.step(stepInterval, isSomeLaneFilled);
+		} else {
+			trafficLightCycle.step(stepInterval, true);
+		}
+
 	}
 
 	private void moveVehicles() {

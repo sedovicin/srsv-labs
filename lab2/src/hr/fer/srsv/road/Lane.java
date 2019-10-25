@@ -12,6 +12,7 @@ import hr.fer.srsv.movables.Movable;
 public class Lane<T extends Movable> {
 
 	private final int length;
+	private final int nonCrossingSize;
 	/**
 	 * Movable object is the key, object's first character's position on the lane is
 	 * the value. <br/>
@@ -25,6 +26,7 @@ public class Lane<T extends Movable> {
 	public Lane(final int nonCrossingSize, final int crossingSize, final TrafficLight trafficLight,
 			final Direction direction) {
 		movables = new LinkedList<>();
+		this.nonCrossingSize = nonCrossingSize;
 		this.length = (nonCrossingSize * 2) + crossingSize;
 		this.trafficLight = trafficLight;
 		this.trafficLightPosition = nonCrossingSize - 1;
@@ -122,6 +124,20 @@ public class Lane<T extends Movable> {
 			return false;
 		}
 		return true;
+	}
+
+	public boolean isNonCrossingAreaFilled(final int minimumMovableLength) {
+		int filledPositions = 0;
+		for (int i = 0; i < movables.size(); ++i) {
+			if (movables.get(i).getValue().compareTo(trafficLightPosition) <= 0) {
+				filledPositions += movables.get(i).getKey().getLength();
+			}
+		}
+		if ((nonCrossingSize - filledPositions) < minimumMovableLength) {
+			return true;
+		}
+		return false;
+
 	}
 
 	private void addToLane(final T movable) {
