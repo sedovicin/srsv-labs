@@ -1,46 +1,25 @@
 package hr.fer.srsv.lab3.floor;
 
-import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import hr.fer.srsv.lab3.traveler.Traveler;
 
 public class Floor {
 
-	private Integer level;
-	private Integer capacity;
-	private List<Traveler> waitingTravelers;
-	private List<Traveler> arrivedTravelers;
+	private final Integer level;
+	private final Integer capacity;
+	private final Queue<Traveler> waitingTravelers;
+	private final Queue<Traveler> arrivedTravelers;
 
-	public Integer getLevel() {
-		return level;
-	}
-
-	public void setLevel(final Integer level) {
+	public Floor(final int level, final int capacity) {
 		this.level = level;
-	}
-
-	public Integer getCapacity() {
-		return capacity;
-	}
-
-	public void setCapacity(final Integer capacity) {
 		this.capacity = capacity;
+		waitingTravelers = new LinkedBlockingQueue<>(capacity);
+		arrivedTravelers = new LinkedBlockingQueue<>(capacity);
 	}
 
-	public List<Traveler> getWaitingTravelers() {
-		return waitingTravelers;
+	public boolean addTraveler(final Traveler traveler) {
+		return waitingTravelers.offer(traveler);
 	}
-
-	public void setWaitingTravelers(final List<Traveler> waitingTravelers) {
-		this.waitingTravelers = waitingTravelers;
-	}
-
-	public List<Traveler> getArrivedTravelers() {
-		return arrivedTravelers;
-	}
-
-	public void setArrivedTravelers(final List<Traveler> arrivedTravelers) {
-		this.arrivedTravelers = arrivedTravelers;
-	}
-
 }

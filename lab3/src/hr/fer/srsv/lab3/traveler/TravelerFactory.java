@@ -4,8 +4,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 
-import hr.fer.srsv.lab3.lift.LiftController;
-
 public class TravelerFactory {
 
 	private static TravelerFactory tf;
@@ -25,13 +23,12 @@ public class TravelerFactory {
 		return tf;
 	}
 
-	public Traveler newTraveler() {
-
+	public Traveler newTraveler(final int floorQuantity) {
 		char newId = nextId();
 		activeIds.add(Integer.valueOf(integerToLetter(newId)));
 
-		Integer sourceFloor = random.nextInt(LiftController.getInstance().getFloors());
-		Integer destinationFloor = destinationFloor(sourceFloor);
+		Integer sourceFloor = random.nextInt(floorQuantity);
+		Integer destinationFloor = destinationFloor(floorQuantity, sourceFloor);
 
 		return new Traveler(String.valueOf(newId), sourceFloor, destinationFloor);
 	}
@@ -59,10 +56,10 @@ public class TravelerFactory {
 		return newNumber;
 	}
 
-	private Integer destinationFloor(final Integer sourceFloor) {
-		Integer destinationFloor = random.nextInt(LiftController.getInstance().getFloors());
+	private Integer destinationFloor(final int floorQuantity, final Integer sourceFloor) {
+		Integer destinationFloor = random.nextInt(floorQuantity);
 		while (sourceFloor.equals(destinationFloor)) {
-			destinationFloor = random.nextInt(LiftController.getInstance().getFloors());
+			destinationFloor = random.nextInt(floorQuantity);
 		}
 		return destinationFloor;
 	}
