@@ -115,6 +115,6 @@ public class Lift {
 	}
 
 	private int toPosition(final int floor) {
-		return (2 * floor) + 1;
+		return 2 * floor;
 	}
 }
