@@ -1,5 +1,6 @@
 package hr.fer.srsv.lab3.traveler;
 
+import hr.fer.srsv.lab3.LiftSystem;
 import hr.fer.srsv.lab3.enums.Direction;
 import hr.fer.srsv.lab3.lift.Lift;
 import hr.fer.srsv.lab3.lift.RequestDisposer;
@@ -10,7 +11,7 @@ public class Traveler {
 	private final Integer sourceLocation;
 	private final Integer destinationLocation;
 
-	private RequestDisposer requestDisposer;
+	private final RequestDisposer requestDisposer;
 
 	private Lift lift;
 
@@ -32,6 +33,7 @@ public class Traveler {
 		this.id = id;
 		this.sourceLocation = sourceLocation;
 		this.destinationLocation = destinationLocation;
+		requestDisposer = LiftSystem.getDisposer();
 	}
 
 }

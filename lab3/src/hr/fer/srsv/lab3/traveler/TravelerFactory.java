@@ -30,7 +30,7 @@ public class TravelerFactory {
 		Integer sourceFloor = random.nextInt(floorQuantity);
 		Integer destinationFloor = destinationFloor(floorQuantity, sourceFloor);
 
-		return new Traveler(String.valueOf(newId), sourceFloor, destinationFloor);
+		return new Traveler(String.valueOf(integerToLetter(newId)), sourceFloor, destinationFloor);
 	}
 
 	public void removeTraveler(final Traveler traveler) {
@@ -41,16 +41,16 @@ public class TravelerFactory {
 	}
 
 	private char nextId() {
-		Integer nextInt = random.nextInt(52);
+		int nextInt = random.nextInt(52);
 		while (activeIds.contains(nextInt)) {
 			nextInt = random.nextInt(52);
 		}
-		return (char) nextInt.intValue();
+		return (char) nextInt;
 	}
 
 	private char integerToLetter(final char random) {
-		char newNumber = (char) (random + 65);
-		if ((newNumber > 90) && (newNumber < 97)) {
+		char newNumber = (char) (random + 'A');
+		if ((newNumber > 'Z') && (newNumber < 'a')) {
 			newNumber += 6;
 		}
 		return newNumber;

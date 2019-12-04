@@ -6,7 +6,12 @@ import hr.fer.srsv.lab3.enums.Direction;
 
 public class RequestDisposer {
 
-	private List<Lift> lifts;
+	private final List<Lift> lifts;
+
+	public RequestDisposer(final List<Lift> lifts) {
+		super();
+		this.lifts = lifts;
+	}
 
 	public void acknowledge(final Integer reqSourceFloor, final Direction reqDestinationdirection) {
 		Lift liftForRequest = chooseLiftForRequest(reqSourceFloor);
