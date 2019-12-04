@@ -1,5 +1,7 @@
 package hr.fer.srsv.lab3.lift;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
@@ -9,17 +11,40 @@ import hr.fer.srsv.lab3.traveler.Traveler;
 
 public class Lift {
 
-	private Integer capacity;
+	private final Integer capacity;
 	private int position;
 	private Direction direction;
-	private List<Traveler> travelers;
+	private final List<Traveler> travelers;
 	private Integer movingSpeed;
 	private DoorStatus doorStatus;
 	private State state;
-	private List<Request> floorRequests;
-	private List<Request> innerRequests;
-	private Queue<Request> newRequests;
-	private List<Request> handlingRequests;
+	private final List<Request> floorRequests;
+	private final List<Request> innerRequests;
+	private final Queue<Request> newRequests;
+	private final List<Request> handlingRequests;
+
+	public Lift(final Integer capacity) {
+		this.capacity = capacity;
+		direction = Direction.NONE;
+		travelers = new ArrayList<>();
+		doorStatus = DoorStatus.CLOSED;
+		floorRequests = new ArrayList<>();
+		innerRequests = new ArrayList<>();
+		handlingRequests = new ArrayList<>();
+		newRequests = new LinkedList<>();
+	}
+
+	public List<Traveler> getTravelers() {
+		return travelers;
+	}
+
+	public List<Request> getHandlingRequests() {
+		return handlingRequests;
+	}
+
+	public Integer getCapacity() {
+		return capacity;
+	}
 
 	public Direction getDirection() {
 		return direction;

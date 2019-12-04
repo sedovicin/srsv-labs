@@ -22,4 +22,9 @@ public class Floor {
 	public boolean addTraveler(final Traveler traveler) {
 		return waitingTravelers.offer(traveler);
 	}
+
+	public Queue<Traveler> getWaitingTravelers() {
+		return waitingTravelers;
+	}
+
 }
