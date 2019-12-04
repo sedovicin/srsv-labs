@@ -1,6 +1,7 @@
 package hr.fer.srsv.lab3.lift;
 
 import java.util.List;
+import java.util.Queue;
 
 import hr.fer.srsv.lab3.enums.Direction;
 import hr.fer.srsv.lab3.enums.DoorStatus;
@@ -9,27 +10,16 @@ import hr.fer.srsv.lab3.traveler.Traveler;
 public class Lift {
 
 	private Integer capacity;
-	private Integer position;
+	private int position;
 	private Direction direction;
 	private List<Traveler> travelers;
 	private Integer movingSpeed;
 	private DoorStatus doorStatus;
-
-	public Integer getCapacity() {
-		return capacity;
-	}
-
-	public void setCapacity(final Integer capacity) {
-		this.capacity = capacity;
-	}
-
-	public Integer getPosition() {
-		return position;
-	}
-
-	public void setPosition(final Integer position) {
-		this.position = position;
-	}
+	private State state;
+	private List<Request> floorRequests;
+	private List<Request> innerRequests;
+	private Queue<Request> newRequests;
+	private List<Request> handlingRequests;
 
 	public Direction getDirection() {
 		return direction;
@@ -39,27 +29,92 @@ public class Lift {
 		this.direction = direction;
 	}
 
-	public List<Traveler> getTravelers() {
-		return travelers;
-	}
-
-	public void setTravelers(final List<Traveler> travelers) {
-		this.travelers = travelers;
-	}
-
-	public Integer getMovingSpeed() {
-		return movingSpeed;
-	}
-
-	public void setMovingSpeed(final Integer movingSpeed) {
-		this.movingSpeed = movingSpeed;
-	}
-
 	public DoorStatus getDoorStatus() {
 		return doorStatus;
 	}
 
 	public void setDoorStatus(final DoorStatus doorStatus) {
 		this.doorStatus = doorStatus;
+	}
+
+	public int getPosition() {
+		return position;
+	}
+
+	public List<Request> getInnerRequests() {
+		return innerRequests;
+	}
+
+	public void add(final Request request) {
+		newRequests.add(request);
+	}
+
+	public boolean hasRequests() {
+		return hasNewRequests() || hasInnerRequests() || hasFloorRequests();
+	}
+
+	public boolean hasNewRequests() {
+		return !(newRequests.isEmpty());
+	}
+
+	public boolean hasFloorRequests() {
+		return !(floorRequests.isEmpty());
+	}
+
+	public boolean hasInnerRequests() {
+		return !(innerRequests.isEmpty());
+	}
+
+	private enum State {
+		STOPPED_OPEN, STOPPED_CLOSED, MOVING_UP, MOVING_DOWN;
+	}
+
+	public void handleNewRequest() {
+		Request newRequest = newRequests.poll();
+		if (newRequest == null) {
+			return;
+		}
+
+		if (newRequest.getRequestType().equals(Request.Type.FLOOR)) {
+			handlingRequests.add(newRequest);
+		}
+
+	}
+
+	/**
+	 * Set direction according to new request
+	 */
+	public void setDirection() {
+		Request handlingRequest = handlingRequests.get(0);
+		if (this.direction.equals(Direction.NONE)) {
+			int floorSource = handlingRequest.getFloorSource();
+			if (toPosition(floorSource) > position) {
+				direction = Direction.UP;
+			} else if (toPosition(floorSource) < position) {
+				direction = Direction.DOWN;
+			}
+		}
+	}
+
+	public void stoppedAndDoorClosed() {
+		direction = Direction.NONE;
+		doorStatus = DoorStatus.CLOSED;
+	}
+
+	public void move() {
+		if (direction.equals(Direction.DOWN)) {
+			position -= 1;
+		} else if (direction.equals(Direction.UP)) {
+			position += 1;
+		}
+	}
+
+	public boolean reachedDestination() {
+		int floorSource = handlingRequests.get(0).getFloorSource();
+		return toPosition(floorSource) == position;
+	}
+
+	private int toPosition(final int floor) {
+		return (2 * floor) + 1;
 	}
 }

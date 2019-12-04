@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import hr.fer.srsv.lab3.enums.Direction;
 import hr.fer.srsv.lab3.floor.Floor;
+import hr.fer.srsv.lab3.lift.Lift;
 import hr.fer.srsv.lab3.traveler.Traveler;
 import hr.fer.srsv.lab3.traveler.TravelerFactory;
 
@@ -14,6 +16,7 @@ public class LiftSystem {
 
 	private final int newTravelerChance;
 	private final int floorQuantity;
+	private List<Lift> lifts;
 	private final List<Floor> floors;
 
 	public LiftSystem(final int newTravelerChance, final int floorQuantity, final int floorCapacity) {
@@ -28,9 +31,10 @@ public class LiftSystem {
 
 	public void run() {
 		while (true) {
-			manageTravelers();
+
 			manageLifts();
 			print();
+			manageTravelers();
 			sleep();
 		}
 	}
@@ -41,12 +45,30 @@ public class LiftSystem {
 			boolean added = floors.get(newTraveler.getSourceLocation()).addTraveler(newTraveler);
 			if (!added) {
 				TravelerFactory.getInstance().removeTraveler(newTraveler);
+			} else {
+				newTraveler.sendRequest();
 			}
 		}
 	}
 
 	private void manageLifts() {
-		// TODO Auto-generated method stub
+		for (Lift lift : lifts) {
+			if (lift.getDirection().equals(Direction.NONE)) {
+				if (!(lift.hasRequests())) {
+					lift.stoppedAndDoorClosed();
+				} else if (lift.hasNewRequests()) {
+					lift.handleNewRequest();
+					lift.setDirection();
+				}
+			} else {
+				if (lift.reachedDestination()) {
+					lift.stoppedAndDoorClosed();
+				} else {
+					lift.move();
+				}
+			}
+
+		}
 
 	}
 
