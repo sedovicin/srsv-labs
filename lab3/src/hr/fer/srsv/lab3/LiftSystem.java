@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Random;
 
 import hr.fer.srsv.lab3.enums.Direction;
+import hr.fer.srsv.lab3.enums.DoorStatus;
 import hr.fer.srsv.lab3.floor.Floor;
 import hr.fer.srsv.lab3.lift.Lift;
 import hr.fer.srsv.lab3.lift.Request;
@@ -67,15 +68,19 @@ public class LiftSystem {
 	private void manageLifts() {
 		for (Lift lift : lifts) {
 			if (lift.getDirection().equals(Direction.NONE)) {
-				if (!(lift.hasRequests())) {
+				if (lift.hasRequestsAtPosition()) {
+					lift.setDoorStatus(DoorStatus.OPEN);
+				} else if (!(lift.hasRequests())) {
 					lift.stoppedAndDoorClosed();
 				} else if (lift.hasNewRequests()) {
 					lift.handleNewRequest();
 					lift.setDirection();
+				} else if (lift.getDoorStatus().equals(DoorStatus.OPEN)) {
+//					lift.addTravelers(lift);
 				}
 			} else {
-				if (lift.reachedDestination()) {
-					lift.stoppedAndDoorClosed();
+				if (lift.hasRequestsAtPosition()) {
+					lift.stop();
 				} else {
 					lift.move();
 				}
@@ -110,11 +115,7 @@ public class LiftSystem {
 			stops[i] = false;
 		}
 		for (Request request : requests) {
-			if (request.getFloorSource() != null) {
-				stops[request.getFloorSource().intValue()] = true;
-			} else if (request.getFloorDestination() != null) {
-				stops[request.getFloorSource().intValue()] = true;
-			}
+			stops[request.getFloor().intValue()] = true;
 		}
 		for (int i = 0; i < stops.length; ++i) {
 			if (stops[i] == true) {

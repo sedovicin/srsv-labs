@@ -36,4 +36,8 @@ public class Traveler {
 		requestDisposer = LiftSystem.getDisposer();
 	}
 
+	public void enterLift() {
+
+	}
+
 }

@@ -14,6 +14,7 @@ public class Lift {
 	private final Integer capacity;
 	private int position;
 	private Direction direction;
+	private boolean moving;
 	private final List<Traveler> travelers;
 	private Integer movingSpeed;
 	private DoorStatus doorStatus;
@@ -26,6 +27,7 @@ public class Lift {
 	public Lift(final Integer capacity) {
 		this.capacity = capacity;
 		direction = Direction.NONE;
+		moving = false;
 		travelers = new ArrayList<>();
 		doorStatus = DoorStatus.CLOSED;
 		floorRequests = new ArrayList<>();
@@ -112,7 +114,7 @@ public class Lift {
 	public void setDirection() {
 		Request handlingRequest = handlingRequests.get(0);
 		if (this.direction.equals(Direction.NONE)) {
-			int floorSource = handlingRequest.getFloorSource();
+			int floorSource = handlingRequest.getFloor();
 			if (toPosition(floorSource) > position) {
 				direction = Direction.UP;
 			} else if (toPosition(floorSource) < position) {
@@ -127,19 +129,32 @@ public class Lift {
 	}
 
 	public void move() {
-		if (direction.equals(Direction.DOWN)) {
-			position -= 1;
-		} else if (direction.equals(Direction.UP)) {
-			position += 1;
+		if (doorStatus.equals(DoorStatus.CLOSED)) {
+			if (direction.equals(Direction.DOWN)) {
+				position -= 1;
+			} else if (direction.equals(Direction.UP)) {
+				position += 1;
+			}
 		}
 	}
 
-	public boolean reachedDestination() {
-		int floorSource = handlingRequests.get(0).getFloorSource();
-		return toPosition(floorSource) == position;
+	public void stop() {
+		moving = false;
 	}
 
 	private int toPosition(final int floor) {
 		return 2 * floor;
 	}
+
+	public boolean hasRequestsAtPosition() {
+		boolean requestAtCurrentPosition = false;
+		for (Request request : handlingRequests) {
+			if (toPosition(request.getFloor()) == position) {
+				requestAtCurrentPosition = true;
+				break;
+			}
+		}
+		return requestAtCurrentPosition;
+	}
+
 }
