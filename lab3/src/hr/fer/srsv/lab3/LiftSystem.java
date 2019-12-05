@@ -1,11 +1,11 @@
 package hr.fer.srsv.lab3;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.Random;
 
 import hr.fer.srsv.lab3.enums.Direction;
-import hr.fer.srsv.lab3.enums.DoorStatus;
 import hr.fer.srsv.lab3.floor.Floor;
 import hr.fer.srsv.lab3.lift.Lift;
 import hr.fer.srsv.lab3.lift.Request;
@@ -17,24 +17,26 @@ public class LiftSystem {
 
 	private final Random random;
 
+	private final int interval;
 	private final int newTravelerChance;
 	private final int floorQuantity;
 	private final int floorCapacity;
 	private final List<Lift> lifts;
 	private final List<Floor> floors;
+	private final Queue<Traveler> travelers;
 
 	private static RequestDisposer requestDisposer;
 
-	public LiftSystem(final int newTravelerChance, final int floorQuantity, final int floorCapacity,
-			final List<Lift> lifts) {
+	public LiftSystem(final int interval, final int newTravelerChance, final int floorQuantity, final int floorCapacity,
+			final List<Floor> floors, final List<Lift> lifts) {
+		this.interval = interval;
 		random = new Random();
 		this.newTravelerChance = newTravelerChance;
 		this.floorQuantity = floorQuantity;
 		this.floorCapacity = floorCapacity;
-		floors = new ArrayList<>(floorQuantity);
-		for (int i = 0; i < floorQuantity; ++i) {
-			floors.add(new Floor(i, floorCapacity));
-		}
+		this.floors = floors;
+		travelers = new LinkedList<>();
+
 		this.lifts = lifts;
 		requestDisposer = new RequestDisposer(lifts);
 	}
@@ -45,10 +47,9 @@ public class LiftSystem {
 
 	public void run() {
 		while (true) {
-
 			manageLifts();
-			print();
 			manageTravelers();
+			print();
 			sleep();
 		}
 	}
@@ -56,11 +57,12 @@ public class LiftSystem {
 	private void manageTravelers() {
 		if (lucky(newTravelerChance)) {
 			Traveler newTraveler = TravelerFactory.getInstance().newTraveler(floorQuantity);
-			boolean added = floors.get(newTraveler.getSourceLocation()).addTraveler(newTraveler);
+			boolean added = floors.get(newTraveler.getSourceFloor()).addTraveler(newTraveler);
 			if (!added) {
 				TravelerFactory.getInstance().removeTraveler(newTraveler);
 			} else {
 				newTraveler.sendRequest();
+				travelers.add(newTraveler);
 			}
 		}
 	}
@@ -68,26 +70,62 @@ public class LiftSystem {
 	private void manageLifts() {
 		for (Lift lift : lifts) {
 			if (lift.getDirection().equals(Direction.NONE)) {
-				if (lift.hasRequestsAtPosition()) {
-					lift.setDoorStatus(DoorStatus.OPEN);
-				} else if (!(lift.hasRequests())) {
-					lift.stoppedAndDoorClosed();
-				} else if (lift.hasNewRequests()) {
-					lift.handleNewRequest();
-					lift.setDirection();
-				} else if (lift.getDoorStatus().equals(DoorStatus.OPEN)) {
-//					lift.addTravelers(lift);
-				}
+				lift.checkAndSetNewDirection();
 			} else {
-				if (lift.hasRequestsAtPosition()) {
-					lift.stop();
+				if (lift.isMoving()) {
+					if (lift.atSemiFloor()) {
+						lift.move();
+					} else {
+						if (lift.shouldStop()) {
+							lift.stop();
+						} else {
+							lift.move();
+						}
+					}
 				} else {
-					lift.move();
+					if (lift.areDoorClosed()) {
+						if (lift.shouldOpenDoor()) {
+							lift.openDoor();
+						} else {
+							if (lift.isFull()) {
+								lift.start();
+							} else {
+								if (lift.hasFurtherRequests()) {
+									lift.start();
+								} else {
+									if (lift.hasBehindRequests()) {
+										lift.changeDirection();
+									}
+								}
+							}
+						}
+					} else {
+						Floor floor = lift.getCurrentFloor();
+						if (lift.hasRequestsForOut()) {
+							floor.getNewArrivedTraveler(lift.freeTraveler());
+						} else {
+							if (lift.isFull()) {
+								lift.closeDoor();
+							} else {
+								if (floor.hasTravelersForLiftAndDirection(lift)) {
+									lift.addTraveler(floor.getWaitingTraveler(lift));
+								} else {
+									if (lift.hasFurtherRequests()) {
+										lift.closeDoor();
+									} else {
+										if (lift.hasBehindRequests()) {
+											lift.changeDirection();
+										} else {
+											lift.closeDoor();
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 			}
-
 		}
-
 	}
 
 	private void print() {
@@ -104,22 +142,24 @@ public class LiftSystem {
 		sb.append(firstLift.getDirection().name());
 		sb.append(" ");
 		sb.append(firstLift.getDoorStatus().name());
+		sb.append(" ");
+		sb.append(firstLift.isMoving());
 		System.out.println(sb.toString());
 
 		sb = new StringBuilder();
 		sb.append("Stajanja:");
 		sb.append(space(((2 + floorCapacity) - 9) + 1));
-		List<Request> requests = firstLift.getHandlingRequests();
-		boolean[] stops = new boolean[floorQuantity];
+		List<Request> requests = firstLift.getInnerRequests();
+		int[] stops = new int[floorQuantity];
 		for (int i = 0; i < stops.length; ++i) {
-			stops[i] = false;
+			stops[i] = 0;
 		}
 		for (Request request : requests) {
-			stops[request.getFloor().intValue()] = true;
+			++stops[request.getFloor().intValue()];
 		}
 		for (int i = 0; i < stops.length; ++i) {
-			if (stops[i] == true) {
-				sb.append("*");
+			if (stops[i] > 0) {
+				sb.append(stops[i]);
 			} else {
 				sb.append("-");
 			}
@@ -158,6 +198,12 @@ public class LiftSystem {
 				}
 				sb.append("|");
 			}
+			if ((i % 2) == 0) {
+				for (Traveler traveler : floor.getArrivedTravelers()) {
+					sb.append(traveler.getId());
+				}
+
+			}
 			System.out.println(sb.toString());
 		}
 
@@ -170,11 +216,31 @@ public class LiftSystem {
 			sb.append("=");
 		}
 		System.out.println(sb.toString());
+
+		sb = new StringBuilder();
+		for (Traveler traveler : travelers) {
+			sb.append(traveler.getId());
+		}
+		System.out.println(sb.toString());
+
+		sb = new StringBuilder();
+		for (Traveler traveler : travelers) {
+			sb.append(traveler.getSourceFloor());
+		}
+		System.out.println(sb.toString());
+
+		sb = new StringBuilder();
+		for (Traveler traveler : travelers) {
+			sb.append(traveler.getDestinationFloor());
+		}
+		System.out.println(sb.toString());
+		System.out.println();
+		System.out.println("#####################################################################");
 	}
 
 	private void sleep() {
 		try {
-			Thread.sleep(500);
+			Thread.sleep(interval);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}

@@ -6,10 +6,9 @@ import hr.fer.srsv.lab3.lift.Lift;
 import hr.fer.srsv.lab3.lift.RequestDisposer;
 
 public class Traveler {
-
 	private final String id;
-	private final Integer sourceLocation;
-	private final Integer destinationLocation;
+	private final Integer sourceFloor;
+	private final Integer destinationFloor;
 
 	private final RequestDisposer requestDisposer;
 
@@ -19,25 +18,32 @@ public class Traveler {
 		return id;
 	}
 
-	public Integer getSourceLocation() {
-		return sourceLocation;
+	public Integer getSourceFloor() {
+		return sourceFloor;
+	}
+
+	public Integer getDestinationFloor() {
+		return destinationFloor;
+	}
+
+	public Direction getDirection() {
+		return destinationFloor > sourceFloor ? Direction.UP : Direction.DOWN;
 	}
 
 	public void sendRequest() {
-		Direction direction = destinationLocation > sourceLocation ? Direction.UP : Direction.DOWN;
-		requestDisposer.acknowledge(this.sourceLocation, direction);
+		Direction direction = getDirection();
+		lift = requestDisposer.acknowledgeFloorRequest(this.sourceFloor, direction);
 	}
 
-	public Traveler(final String id, final Integer sourceLocation, final Integer destinationLocation) {
+	public Traveler(final String id, final Integer sourceFloor, final Integer destinationFloor) {
 		super();
 		this.id = id;
-		this.sourceLocation = sourceLocation;
-		this.destinationLocation = destinationLocation;
+		this.sourceFloor = sourceFloor;
+		this.destinationFloor = destinationFloor;
 		requestDisposer = LiftSystem.getDisposer();
 	}
 
-	public void enterLift() {
-
+	public Lift getLift() {
+		return lift;
 	}
-
 }

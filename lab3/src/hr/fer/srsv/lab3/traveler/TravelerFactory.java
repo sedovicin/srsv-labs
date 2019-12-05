@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Random;
 
 public class TravelerFactory {
-
 	private static TravelerFactory tf;
 	private final Random random;
 	private final List<Integer> activeIds;
@@ -34,7 +33,7 @@ public class TravelerFactory {
 	}
 
 	public void removeTraveler(final Traveler traveler) {
-		Integer id = Integer.parseInt(traveler.getId());
+		int id = traveler.getId().charAt(0);
 
 		id = letterToInteger(id);
 		activeIds.remove(id);
