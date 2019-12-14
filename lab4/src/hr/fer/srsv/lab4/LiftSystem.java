@@ -129,8 +129,6 @@ public class LiftSystem {
 	}
 
 	private void print() {
-
-		Lift firstLift = lifts.get(0);
 		StringBuilder sb = new StringBuilder();
 		sb.append(space(2 + floorCapacity + 1));
 		int count = 0;
