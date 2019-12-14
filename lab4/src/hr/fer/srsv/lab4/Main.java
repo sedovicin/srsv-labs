@@ -12,7 +12,8 @@ public class Main {
 		int interval = 500;
 		int floorQuantity = 4;
 		int floorCapacity = 10;
-		int liftCapacity = 6;
+		int lift1Capacity = 10;
+		int lift2Capacity = 6;
 		int newTravelerChance = 20;
 
 		List<Floor> floors = new ArrayList<>();
@@ -20,7 +21,9 @@ public class Main {
 			floors.add(new Floor(floorCapacity));
 		}
 		List<Lift> lifts = new ArrayList<>();
-		lifts.add(new Lift(liftCapacity, floors));
+		lifts.add(new Lift(lift1Capacity, floors));
+		lifts.add(new Lift(lift2Capacity, floors));
+
 		new LiftSystem(interval, newTravelerChance, floorQuantity, floorCapacity, floors, lifts).run();
 	}
 }
