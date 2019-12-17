@@ -24,7 +24,7 @@ public class TravelerFactory {
 
 	public Traveler newTraveler(final int floorQuantity) {
 		char newId = nextId();
-		activeIds.add(Integer.valueOf(integerToLetter(newId)));
+		activeIds.add(Integer.valueOf(newId));
 
 		Integer sourceFloor = random.nextInt(floorQuantity);
 		Integer destinationFloor = destinationFloor(floorQuantity, sourceFloor);
@@ -41,7 +41,7 @@ public class TravelerFactory {
 
 	private char nextId() {
 		int nextInt = random.nextInt(52);
-		while (activeIds.contains(nextInt)) {
+		while (activeIds.contains(Integer.valueOf(nextInt))) {
 			nextInt = random.nextInt(52);
 		}
 		return (char) nextInt;

@@ -129,40 +129,64 @@ public class LiftSystem {
 	}
 
 	private void print() {
-		Lift firstLift = lifts.get(0);
-
-		int firstLine = 2 + floorCapacity + 2 + ((lifts.get(0).getCapacity() - 5) / 2);
 		StringBuilder sb = new StringBuilder();
-		sb.append(space(firstLine));
-		sb.append("Lift1");
+		sb.append(space(2 + floorCapacity + 1));
+		int count = 0;
+		for (Lift lift : lifts) {
+			++count;
+			int firstLine = ((lift.getCapacity() - 4) / 2) + 1;
+
+			sb.append(space(firstLine));
+			sb.append("Lift");
+			sb.append(count);
+			firstLine = ((lift.getCapacity() - 4) / 2);
+			sb.append(space(firstLine));
+
+		}
 		System.out.println(sb.toString());
 
 		sb = new StringBuilder();
-		sb.append("Smjer/vrata:");
-		sb.append(firstLift.getDirection().name());
-		sb.append(" ");
-		sb.append(firstLift.getDoorStatus().name());
-		sb.append(" ");
-		sb.append(firstLift.isMoving());
+		sb.append("Smjer/vrata: ");
+		for (Lift lift : lifts) {
+			int empty = ((lift.getCapacity() - 2) / 2) + 1;
+
+			sb.append(space(empty));
+			sb.append(lift.getDirection().name().substring(0, 1));
+			sb.append(" ");
+			sb.append(lift.getDoorStatus().name().substring(0, 1));
+			empty = ((lift.getCapacity() - 2) / 2);
+			sb.append(space(empty));
+//			sb.append(" ");
+//			sb.append(lift.isMoving());
+
+		}
 		System.out.println(sb.toString());
 
 		sb = new StringBuilder();
 		sb.append("Stajanja:");
 		sb.append(space(((2 + floorCapacity) - 9) + 1));
-		List<Request> requests = firstLift.getInnerRequests();
-		int[] stops = new int[floorQuantity];
-		for (int i = 0; i < stops.length; ++i) {
-			stops[i] = 0;
-		}
-		for (Request request : requests) {
-			++stops[request.getFloor().intValue()];
-		}
-		for (int i = 0; i < stops.length; ++i) {
-			if (stops[i] > 0) {
-				sb.append(stops[i]);
-			} else {
-				sb.append("-");
+		for (Lift lift : lifts) {
+			int empty = ((lift.getCapacity() - 2) / 2);
+
+			sb.append(space(empty));
+			List<Request> requests = lift.getInnerRequests();
+			int[] stops = new int[floorQuantity];
+			for (int i = 0; i < stops.length; ++i) {
+				stops[i] = 0;
 			}
+			for (Request request : requests) {
+				++stops[request.getFloor().intValue()];
+			}
+			for (int i = 0; i < stops.length; ++i) {
+				if (stops[i] > 0) {
+					sb.append(stops[i]);
+				} else {
+					sb.append("-");
+				}
+			}
+			empty = ((lift.getCapacity() - 2) / 2);
+
+			sb.append(space(empty));
 		}
 		System.out.println(sb.toString());
 
@@ -232,6 +256,20 @@ public class LiftSystem {
 		sb = new StringBuilder();
 		for (Traveler traveler : travelers) {
 			sb.append(traveler.getDestinationFloor());
+		}
+		System.out.println(sb.toString());
+
+		sb = new StringBuilder();
+		for (Traveler traveler : travelers) {
+			Lift liftForTraveler = traveler.getLift();
+			int liftIndex = 0;
+			for (Lift lift : lifts) {
+				++liftIndex;
+				if (lift.equals(liftForTraveler)) {
+					sb.append(liftIndex);
+					break;
+				}
+			}
 		}
 		System.out.println(sb.toString());
 		System.out.println();

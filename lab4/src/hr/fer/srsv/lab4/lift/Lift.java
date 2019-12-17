@@ -10,7 +10,7 @@ import hr.fer.srsv.lab4.enums.RequestType;
 import hr.fer.srsv.lab4.floor.Floor;
 import hr.fer.srsv.lab4.traveler.Traveler;
 
-public class Lift {
+public class Lift implements Comparable<Lift> {
 	private final Integer capacity;
 	private int position;
 	private Direction direction;
@@ -170,6 +170,10 @@ public class Lift {
 		return !filteredRequests.isEmpty();
 	}
 
+	public boolean hasAnyRequests() {
+		return !innerRequests.isEmpty() || !floorRequests.isEmpty();
+	}
+
 	public boolean hasRequestsForOut(final List<Request> filteredRequests) {
 		for (Request request : filteredRequests) {
 			if (request.getRequestType().equals(RequestType.INNER)) {
@@ -238,6 +242,21 @@ public class Lift {
 		return upperRequests;
 	}
 
+	public List<Request> filterUpperRequests(final int floor) {
+		List<Request> upperRequests = new ArrayList<>();
+		for (Request request : innerRequests) {
+			if (request.getFloor().compareTo(floor) > 0) {
+				upperRequests.add(request);
+			}
+		}
+		for (Request request : floorRequests) {
+			if (request.getFloor().compareTo(floor) > 0) {
+				upperRequests.add(request);
+			}
+		}
+		return upperRequests;
+	}
+
 	public List<Request> filterLowerRequests() {
 		List<Request> lowerRequests = new ArrayList<>();
 		for (Request request : innerRequests) {
@@ -253,12 +272,40 @@ public class Lift {
 		return lowerRequests;
 	}
 
+	public List<Request> filterLowerRequests(final int floor) {
+		List<Request> lowerRequests = new ArrayList<>();
+		for (Request request : innerRequests) {
+			if (request.getFloor().compareTo(floor) < 0) {
+				lowerRequests.add(request);
+			}
+		}
+		for (Request request : floorRequests) {
+			if (request.getFloor().compareTo(floor) < 0) {
+				lowerRequests.add(request);
+			}
+		}
+		return lowerRequests;
+	}
+
 	public boolean hasFurtherRequests() {
 		List<Request> furtherRequests;
 		if (direction.equals(Direction.UP)) {
 			furtherRequests = filterUpperRequests();
 		} else if (direction.equals(Direction.DOWN)) {
 			furtherRequests = filterLowerRequests();
+		} else {
+			furtherRequests = filterRequestsForCurrentFloor();
+		}
+
+		return !furtherRequests.isEmpty();
+	}
+
+	public boolean hasFurtherRequests(final int floor) {
+		List<Request> furtherRequests;
+		if (direction.equals(Direction.UP)) {
+			furtherRequests = filterUpperRequests(floor);
+		} else if (direction.equals(Direction.DOWN)) {
+			furtherRequests = filterLowerRequests(floor);
 		} else {
 			furtherRequests = filterRequestsForCurrentFloor();
 		}
@@ -293,5 +340,10 @@ public class Lift {
 		} else {
 			return Direction.NONE;
 		}
+	}
+
+	@Override
+	public int compareTo(final Lift o) {
+		return this.capacity.compareTo(o.capacity);
 	}
 }
