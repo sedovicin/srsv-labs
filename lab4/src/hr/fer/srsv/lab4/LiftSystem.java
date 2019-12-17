@@ -258,6 +258,20 @@ public class LiftSystem {
 			sb.append(traveler.getDestinationFloor());
 		}
 		System.out.println(sb.toString());
+
+		sb = new StringBuilder();
+		for (Traveler traveler : travelers) {
+			Lift liftForTraveler = traveler.getLift();
+			int liftIndex = 0;
+			for (Lift lift : lifts) {
+				++liftIndex;
+				if (lift.equals(liftForTraveler)) {
+					sb.append(liftIndex);
+					break;
+				}
+			}
+		}
+		System.out.println(sb.toString());
 		System.out.println();
 		System.out.println("#####################################################################");
 	}
