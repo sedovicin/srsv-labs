@@ -170,6 +170,10 @@ public class Lift implements Comparable<Lift> {
 		return !filteredRequests.isEmpty();
 	}
 
+	public boolean hasAnyRequests() {
+		return !innerRequests.isEmpty() || !floorRequests.isEmpty();
+	}
+
 	public boolean hasRequestsForOut(final List<Request> filteredRequests) {
 		for (Request request : filteredRequests) {
 			if (request.getRequestType().equals(RequestType.INNER)) {
