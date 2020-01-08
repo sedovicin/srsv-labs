@@ -3,6 +3,9 @@
 #include<stdlib.h>
 #include<signal.h>
 #include<unistd.h>
+#include<mqueue.h>
+
+#define MQ_ENV_VAR_NAME "SRSV_LAB5"
 
 short end = 0;
 
@@ -31,6 +34,8 @@ int main(int argc, char *argv[]){
 	int s; //for statuses
 	pthread_t *thread_ids;
 	struct sigaction sa;
+	mqd_t mq;
+	char* MQ_NAME = getenv(MQ_ENV_VAR_NAME);
 
 	//Check if arguments are here
 	if (argc < 2){
@@ -63,6 +68,13 @@ int main(int argc, char *argv[]){
 		}
 	}
 
+	//Setup message queue link
+	mq = mq_open(MQ_NAME, O_RDONLY);
+	if (mq == (mqd_t) -1){
+		perror("Failed to open message queue:\n");
+		exit(1);
+	}
+
 	//Do what you need to do
 	while(!end){
 		printf("hello\n");
@@ -78,6 +90,9 @@ int main(int argc, char *argv[]){
 		}
 	}
 	
+	if (mq_unlink(MQ_NAME) == -1){
+		perror("Failed to initialize closing message queue:\n");
+	}
 	free(thread_ids);
 
 	printf("Bye!\n");
