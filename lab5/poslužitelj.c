@@ -30,6 +30,66 @@ static void signal_handler(int sig, siginfo_t *info, void *context){
 	end = 1;
 }
 
+
+/*
+#########################
+NODE BEGIN
+#########################
+*/
+typedef struct node {
+	char *message;
+	struct node *next;
+} Node;
+
+Node *head = NULL;
+Node *tail = NULL;
+
+/*
+Adds a copy of messageToAdd to the end of the list.
+*/
+void addNode(char *messageToAdd){
+	Node *newNode = malloc(sizeof(Node));
+	char *new = calloc(strlen(messageToAdd), sizeof(char));
+	strncpy(new, messageToAdd, strlen(messageToAdd));
+
+	newNode -> message = new;
+	if (head == NULL){ //list empty
+		head = newNode;
+		tail = newNode;
+	}
+	else { //list contains at least one element
+		tail -> next = newNode;
+		tail = newNode;
+	}
+}
+
+/*
+Removes node from beginning of the list and returns element that was in removed node.
+*/
+char* removeNode(){
+	char *message;
+	Node *firstNode = head;
+
+	if (head == NULL){ //list empty
+		return NULL;
+	}
+
+	head = firstNode -> next;
+	if (firstNode -> next == NULL){ //only one (this) entry in list
+		tail = NULL;
+	}
+
+	message = firstNode -> message;
+
+	free(firstNode);
+	return message;
+}
+/*
+#########################
+NODE END
+#########################
+*/
+
 int main(int argc, char *argv[]){
 	int thread_count;
 	int i;
