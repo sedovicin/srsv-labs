@@ -4,6 +4,8 @@
 #include<signal.h>
 #include<unistd.h>
 #include<mqueue.h>
+#include<errno.h>
+#include<string.h>
 
 #define MQ_ENV_VAR_NAME "SRSV_LAB5"
 
@@ -35,6 +37,9 @@ int main(int argc, char *argv[]){
 	pthread_t *thread_ids;
 	struct sigaction sa;
 	mqd_t mq;
+	struct mq_attr mqattr;
+	void *buffer;
+	ssize_t mbytesread;
 	char* MQ_NAME = getenv(MQ_ENV_VAR_NAME);
 
 	//Check if arguments are here
@@ -50,6 +55,26 @@ int main(int argc, char *argv[]){
 	sa.sa_sigaction = signal_handler;
 	if (sigaction(SIGTERM, &sa, NULL) == -1){
 		perror("error on setting action for signal SIGTERM:\n");
+	}
+
+
+	//Setup message queue link
+	if (MQ_NAME == NULL || strlen(MQ_NAME) <= 0){
+		fprintf(stderr, "No message queue name defined!\n");
+		exit(1);
+	}
+	//mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK);
+	mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK | O_CREAT, 00600, NULL);
+	if (mq == (mqd_t) -1){
+		perror("Failed to open message queue:\n");
+		exit(1);
+	}
+	if (mq_getattr(mq, &mqattr) == -1){
+		perror("Failed to get attribute of message queue:\n");
+	}
+	buffer = malloc(mqattr.mq_msgsize);
+	if (buffer == NULL){
+		perror("Failed to allocate memory for message buffer:\n");
 	}
 
 	//Create needed amount of threads
@@ -68,16 +93,16 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	//Setup message queue link
-	mq = mq_open(MQ_NAME, O_RDONLY);
-	if (mq == (mqd_t) -1){
-		perror("Failed to open message queue:\n");
-		exit(1);
-	}
-
 	//Do what you need to do
 	while(!end){
-		printf("hello\n");
+		//Read message
+		mbytesread = mq_receive(mq, buffer, mqattr.mq_msgsize, NULL);
+		if (mbytesread == -1){
+			if (errno == EAGAIN){
+				 printf("Nothing to read...\n");
+			}
+		}
+		//Do the rest
 		sleep(1);
 	}
 
@@ -98,5 +123,3 @@ int main(int argc, char *argv[]){
 	printf("Bye!\n");
 	return 0;
 }
-
-
