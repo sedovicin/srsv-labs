@@ -7,6 +7,7 @@
 #include<errno.h>
 #include<string.h>
 #include<sys/mman.h>
+#
 
 #define ENV_VAR_NAME "SRSV_LAB5"
 
@@ -27,6 +28,8 @@ void setup_shared_memory_for_id(char *NAME);
 
 int reserve_ids(int jobs_count);
 
+void create_job(int id, int max_job_duration);
+
 void shutdown(void);
 
 int main(int argc, char *argv[]){
@@ -36,6 +39,11 @@ int main(int argc, char *argv[]){
 	char* NAME = getenv(ENV_VAR_NAME);
 
 	int id_start = 0;
+	int i;
+	struct timespec t;
+
+	clock_gettime(CLOCK_REALTIME, &t);
+	srand(t.tv_nsec);
 
 	//Get arguments values
 	if (argc < 3){
@@ -53,7 +61,15 @@ int main(int argc, char *argv[]){
 	setup_message_queue(NAME);
 	setup_shared_memory_for_id(NAME);
 
+	//mq_unlink(MQ_NAME);
+	//shm_unlink(SHM_NAME);
+	//exit(0);
+
 	id_start = reserve_ids(jobs_count);
+
+	for (i = id_start; i < id_start + jobs_count; ++i){
+		create_job(i, max_job_duration);
+	}
 
 	printf("%d %d %d\n", jobs_count, max_job_duration, id_start);
 	sleep(1);
@@ -133,6 +149,55 @@ int reserve_ids(int jobs_count) {
 	return id_start;
 }
 
+void create_job(int id, int max_job_duration) {
+	int job_duration;
+	int i;
+	char *JOB_NAME;
+	char *descriptor;
+	int *random_numbers;
+
+	int shm_job;
+	int *shm_job_content;
+
+	job_duration = rand() % (max_job_duration - 1) + 1;
+
+	JOB_NAME = calloc(strlen(SHM_NAME) + 2 + 10, sizeof(char));
+	snprintf(JOB_NAME, strlen(SHM_NAME) + 2 + 10, "%s-%d", SHM_NAME, id);
+
+	descriptor = calloc(10 + 10 + strlen(JOB_NAME) + 3, sizeof(char));
+	snprintf(descriptor, 10 + 10 + strlen(JOB_NAME) + 3, "%d %d %s", id, job_duration, JOB_NAME);
+
+	random_numbers = calloc(job_duration, sizeof(int));
+	for (i = 0; i < job_duration; ++i){
+		random_numbers[i] = rand() % 100000;
+	}
+
+	shm_job = shm_open(JOB_NAME, O_RDWR | O_CREAT | O_EXCL, 00600);
+	if (shm_job == -1){
+		perror("Error while creating shared memory for job:\n");
+	}
+	ftruncate(shm_job, sizeof(int) * job_duration);
+	shm_job_content = (int *)mmap(NULL, sizeof(int) * job_duration, PROT_READ | PROT_WRITE, MAP_SHARED, shm_job, 0);
+
+	for (i = 0; i < job_duration; ++i){
+		shm_job_content[i] = random_numbers[i];
+	}
+
+	if (mq_send(mq, descriptor, strlen(descriptor), 0) == -1){
+		perror("Error while sending descriptor to message queue:\n");
+	}
+
+	if (munmap(shm_job_content, sizeof(int) * job_duration) == -1){
+		perror("Failed to unmap shared memory for job:\n");
+	}
+	sleep(1);
+
+	free(JOB_NAME);
+	free(descriptor);
+	free(random_numbers);
+	free(shm_job_content);
+}
+
 void shutdown(void){
 	if (munmap(shm_id, sizeof(struct Shm_shared)) == -1){
 		perror("Failed to unmap shared memory:\n");
@@ -142,4 +207,8 @@ void shutdown(void){
 			perror("Failed to initialize closing shared memory:\n");
 		}
 	}
+
+	free(mq_buffer);
+	free(MQ_NAME);
+	free(SHM_NAME);
 }
