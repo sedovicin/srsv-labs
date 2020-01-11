@@ -14,7 +14,6 @@
 mqd_t mq;
 struct mq_attr mq_attr;
 char* MQ_NAME;
-void *mq_buffer;
 void setup_message_queue(char *NAME);
 
 struct Shm_shared {
@@ -88,9 +87,9 @@ void setup_message_queue(char *NAME){
 	strncpy(MQ_NAME, "/\0", 2);
 	strncat(MQ_NAME, NAME, strlen(NAME));
 
-	mq = mq_open(MQ_NAME, O_RDWR | O_NONBLOCK | O_CREAT | O_EXCL, 00600, NULL);
+	mq = mq_open(MQ_NAME, O_RDWR | O_CREAT | O_EXCL, 00600, NULL);
 	if (mq == (mqd_t) -1){ //Already exists, open it.
-		mq = mq_open(MQ_NAME, O_RDWR | O_NONBLOCK);
+		mq = mq_open(MQ_NAME, O_RDWR);
 		if (mq == (mqd_t) -1){
 			perror("Failed to open message queue:\n");
 			exit(1);
@@ -98,14 +97,10 @@ void setup_message_queue(char *NAME){
 			printf("Opened message queue.\n");
 		}
 	} else { //Not exists, create one
-		if (mq_getattr(mq, &mq_attr) == -1){
-			perror("Failed to get attribute of message queue:\n");
-		}
-		mq_buffer = malloc(mq_attr.mq_msgsize);
-		if (mq_buffer == NULL){
-			perror("Failed to allocate memory for message buffer:\n");
-		}
 		printf("Created message queue.\n");
+	}
+	if (mq_getattr(mq, &mq_attr) == -1){
+		perror("Failed to get attribute of message queue:\n");
 	}
 }
 
@@ -174,14 +169,28 @@ void create_job(int id, int max_job_duration) {
 
 	shm_job = shm_open(JOB_NAME, O_RDWR | O_CREAT | O_EXCL, 00600);
 	if (shm_job == -1){
-		perror("Error while creating shared memory for job:\n");
+		shm_job = shm_open(JOB_NAME, O_RDWR, 00600);
+		if (shm_job == -1){
+			perror("Error while creating shared memory for job:\n");
+		}
+	} else {
+		ftruncate(shm_job, sizeof(int) * job_duration);
 	}
-	ftruncate(shm_job, sizeof(int) * job_duration);
+
 	shm_job_content = (int *)mmap(NULL, sizeof(int) * job_duration, PROT_READ | PROT_WRITE, MAP_SHARED, shm_job, 0);
+	if (shm_job_content == (void *) -1){
+		perror("Failed to map job shared memory:\n");
+	}
 
 	for (i = 0; i < job_duration; ++i){
 		shm_job_content[i] = random_numbers[i];
 	}
+
+	printf("%d: %s ; ", id, descriptor);
+	for (i = 0; i < job_duration; ++i){
+		printf("%d ", shm_job_content[i]);
+	}
+	printf("\n");
 
 	if (mq_send(mq, descriptor, strlen(descriptor), 0) == -1){
 		perror("Error while sending descriptor to message queue:\n");
@@ -195,7 +204,6 @@ void create_job(int id, int max_job_duration) {
 	free(JOB_NAME);
 	free(descriptor);
 	free(random_numbers);
-	free(shm_job_content);
 }
 
 void shutdown(void){
@@ -208,7 +216,6 @@ void shutdown(void){
 		}
 	}
 
-	free(mq_buffer);
 	free(MQ_NAME);
 	free(SHM_NAME);
 }
