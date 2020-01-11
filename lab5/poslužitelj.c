@@ -6,6 +6,7 @@
 #include<mqueue.h>
 #include<errno.h>
 #include<string.h>
+#include<time.h>
 
 #define ENV_VAR_NAME "SRSV_LAB5"
 
@@ -43,45 +44,47 @@ typedef struct node {
 
 Node *head = NULL;
 Node *tail = NULL;
+int job_count = 0;
+int total_jobs_duration = 0;
 
 /*
 Adds a copy of messageToAdd to the end of the list.
 */
-void addNode(char *messageToAdd){
-	Node *newNode = malloc(sizeof(Node));
-	char *new = calloc(strlen(messageToAdd), sizeof(char));
-	strncpy(new, messageToAdd, strlen(messageToAdd));
+void add_node(char *message_to_add){
+	Node *new_node = malloc(sizeof(Node));
+	char *new = calloc(strlen(message_to_add), sizeof(char));
+	strncpy(new, message_to_add, strlen(message_to_add));
 
-	newNode -> message = new;
+	new_node -> message = new;
 	if (head == NULL){ //list empty
-		head = newNode;
-		tail = newNode;
+		head = new_node;
+		tail = new_node;
 	}
 	else { //list contains at least one element
-		tail -> next = newNode;
-		tail = newNode;
+		tail -> next = new_node;
+		tail = new_node;
 	}
 }
 
 /*
 Removes node from beginning of the list and returns element that was in removed node.
 */
-char* removeNode(){
+char* remove_node(){
 	char *message;
-	Node *firstNode = head;
+	Node *first_node = head;
 
 	if (head == NULL){ //list empty
 		return NULL;
 	}
 
-	head = firstNode -> next;
-	if (firstNode -> next == NULL){ //only one (this) entry in list
+	head = first_node -> next;
+	if (first_node -> next == NULL){ //only one (this) entry in list
 		tail = NULL;
 	}
 
-	message = firstNode -> message;
+	message = first_node -> message;
 
-	free(firstNode);
+	free(first_node);
 	return message;
 }
 /*
@@ -92,9 +95,11 @@ NODE END
 
 int main(int argc, char *argv[]){
 	int thread_count;
+	int min_jobs_duration;
 	int i = 0;
 	int s; //for statuses
 	pthread_t *thread_ids;
+	pthread_cond_t msgs_avail;
 	struct sigaction sa;
 	mqd_t mq;
 	struct mq_attr mqattr;
@@ -102,12 +107,19 @@ int main(int argc, char *argv[]){
 	ssize_t mbytesread;
 	char* NAME = getenv(ENV_VAR_NAME);
 	char* MQ_NAME;
+	char* buf_cpy;
+	char* duration_ptr;
+
+	struct timespec t, thread_wake_limit;
 
 	//Check if arguments are here
-	if (argc < 2){
-		fprintf(stderr, "One argument required!\n");
+	if (argc < 3){
+		fprintf(stderr, "Two arguments required!\n");
 		exit(1);
 	}
+
+	min_jobs_duration = atoi(argv[2]);
+	pthread_cond_init(&msgs_avail, NULL);
 
 	//Set shutdown on SIGTERM
 	sa.sa_flags = SA_SIGINFO;
@@ -167,17 +179,44 @@ int main(int argc, char *argv[]){
 		}
 	}
 
+	clock_gettime(CLOCK_REALTIME, &t);
+	thread_wake_limit.tv_sec = t.tv_sec + 30;
+	thread_wake_limit.tv_nsec = t.tv_nsec;
+
 	//Do what you need to do
 	while(!end){
 		//Read message
 		mbytesread = mq_receive(mq, buffer, mqattr.mq_msgsize, NULL);
 		if (mbytesread == -1){
 			if (errno == EAGAIN){
-				 printf("Nothing to read...\n");
+				//printf("Nothing to read...\n");
+				clock_gettime(CLOCK_REALTIME, &t);
 			}
+		} else {
+			add_node(buffer);
+			clock_gettime(CLOCK_REALTIME, &t);
+			thread_wake_limit.tv_sec = t.tv_sec + 30;
+			thread_wake_limit.tv_nsec = t.tv_nsec;
+
+			++job_count;
+			buf_cpy = calloc(strlen(buffer) + 1, sizeof(char));
+			strncpy(buf_cpy, buffer, strlen(buffer));
+			duration_ptr = strtok(buf_cpy, " ");
+			duration_ptr = strtok(NULL, " ");
+			total_jobs_duration += atoi(duration_ptr);
+			free(buf_cpy);
+		}
+		if ((job_count >= thread_count && total_jobs_duration >= min_jobs_duration)
+			 || (t.tv_sec >= thread_wake_limit.tv_sec && t.tv_nsec >= thread_wake_limit.tv_nsec)) {
+
+			pthread_cond_broadcast(&msgs_avail);
+
+			clock_gettime(CLOCK_REALTIME, &t);
+			thread_wake_limit.tv_sec = t.tv_sec + 30;
+			thread_wake_limit.tv_nsec = t.tv_nsec;
 		}
 		//Do the rest
-		sleep(1);
+		//sleep(1);
 	}
 
 	//Wait for all threads to finish
@@ -188,6 +227,8 @@ int main(int argc, char *argv[]){
 			exit(s);
 		}
 	}
+
+	pthread_cond_destroy(&msgs_avail);
 	
 	if (mq_unlink(MQ_NAME) == -1){
 		perror("Failed to initialize closing message queue:\n");
