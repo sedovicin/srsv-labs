@@ -130,7 +130,7 @@ int main(int argc, char *argv[]){
 	mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK);
 	//mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK | O_CREAT, 00600, NULL);
 	if (mq == (mqd_t) -1){
-		while (errno == EAGAIN && (++i < 10)){
+		while (errno == ENOENT && (++i < 10)){
 			mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK);
 			if (mq != (mqd_t) -1){
 				break;
