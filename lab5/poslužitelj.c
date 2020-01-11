@@ -7,7 +7,7 @@
 #include<errno.h>
 #include<string.h>
 
-#define MQ_ENV_VAR_NAME "SRSV_LAB5"
+#define ENV_VAR_NAME "SRSV_LAB5"
 
 short end = 0;
 
@@ -92,7 +92,7 @@ NODE END
 
 int main(int argc, char *argv[]){
 	int thread_count;
-	int i;
+	int i = 0;
 	int s; //for statuses
 	pthread_t *thread_ids;
 	struct sigaction sa;
@@ -100,7 +100,8 @@ int main(int argc, char *argv[]){
 	struct mq_attr mqattr;
 	void *buffer;
 	ssize_t mbytesread;
-	char* MQ_NAME = getenv(MQ_ENV_VAR_NAME);
+	char* NAME = getenv(ENV_VAR_NAME);
+	char* MQ_NAME;
 
 	//Check if arguments are here
 	if (argc < 2){
@@ -117,17 +118,30 @@ int main(int argc, char *argv[]){
 		perror("error on setting action for signal SIGTERM:\n");
 	}
 
-
+	MQ_NAME = calloc(strlen(NAME) + 2, sizeof(char));
+	strncpy(MQ_NAME, "/\0", 2);
+	strncat(MQ_NAME, NAME, strlen(NAME));
 	//Setup message queue link
 	if (MQ_NAME == NULL || strlen(MQ_NAME) <= 0){
 		fprintf(stderr, "No message queue name defined!\n");
 		exit(1);
 	}
-	//mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK);
-	mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK | O_CREAT, 00600, NULL);
+
+	mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK);
+	//mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK | O_CREAT, 00600, NULL);
 	if (mq == (mqd_t) -1){
-		perror("Failed to open message queue:\n");
-		exit(1);
+		while (errno == EAGAIN && (++i < 10)){
+			mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK);
+			if (mq != (mqd_t) -1){
+				break;
+			}
+			printf("Could not open message queue. Trying again...\n");
+			sleep(1);
+		}
+		if (mq == (mqd_t) -1){
+			perror("Failed to open message queue:\n");
+			exit(1);
+		}
 	}
 	if (mq_getattr(mq, &mqattr) == -1){
 		perror("Failed to get attribute of message queue:\n");
