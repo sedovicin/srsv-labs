@@ -149,9 +149,8 @@ static void *thread_worker(void *arg){
 			break;
 		}
 		while (job_count == 0 && !end){
-			printf("R%d: Wait started\n", tid);
+			printf("R%d: No jobs, waiting\n", tid);
 			pthread_cond_wait(&(msgs_avail[tid]), &mutex_mq);
-			printf("R%d: Wait finished\n", tid);
 		}
 		if (end && (job_count == 0)){
 			pthread_mutex_unlock(&mutex_mq);
@@ -167,7 +166,6 @@ static void *thread_worker(void *arg){
 		total_jobs_duration -= duration;
 
 		pthread_mutex_unlock(&mutex_mq);
-		printf("R%d: got message\n", tid);
 		free(buf_cpy);
 
 		do_work(tid, message);
@@ -245,7 +243,6 @@ int main(int argc, char *argv[]){
 
 
 	mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK);
-	//mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK | O_CREAT, 00600, NULL);
 	if (mq == (mqd_t) -1){
 		while (errno == ENOENT && (++i < 10)){
 			mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK);
@@ -288,21 +285,17 @@ int main(int argc, char *argv[]){
 	thread_wake_limit.tv_sec = t.tv_sec + WAIT_TIME;
 	thread_wake_limit.tv_nsec = t.tv_nsec;
 
-	//Do what you need to do
 	while(!end){
 		//Read message
 		mbytesread = mq_receive(mq, buffer, mqattr.mq_msgsize, NULL);
 		if (mbytesread == -1){
 			if (errno == EAGAIN){
-				//printf("Nothing to read...\n");
 				clock_gettime(CLOCK_REALTIME, &t);
-				sleep(1);
 			}
 			else {
 				perror("P: Error while reading message queue");
 			}
 		} else {
-			printf("MEssage read\n");
 			pthread_mutex_lock(&mutex_mq);
 			add_node(buffer);
 			clock_gettime(CLOCK_REALTIME, &t);
@@ -318,24 +311,25 @@ int main(int argc, char *argv[]){
 
 			pthread_mutex_unlock(&mutex_mq);
 			free(buf_cpy);
+			printf("P: Got message %s\n", (char *)buffer);
 			memset(buffer, 0, strlen(buffer));
-			printf("Message added\n");
 		}
 		if ((job_count >= thread_count && total_jobs_duration >= min_jobs_duration)
 			 || (t.tv_sec >= thread_wake_limit.tv_sec && t.tv_nsec >= thread_wake_limit.tv_nsec)) {
+			if (job_count >= thread_count && total_jobs_duration >= min_jobs_duration){
+				printf("P: Notifying workers (got job for each one)\n");
+			} else {
+				printf("P: Notifying workers (more than 30 seconds passed)\n");
+			}
 
-			printf("Condition met\n");
 			for (i = 0; i < thread_count; ++i){
 				pthread_cond_signal(&(msgs_avail[i]));
 			}
-			//pthread_cond_broadcast(&msgs_avail);
 
 			clock_gettime(CLOCK_REALTIME, &t);
 			thread_wake_limit.tv_sec = t.tv_sec + WAIT_TIME;
 			thread_wake_limit.tv_nsec = t.tv_nsec;
 		}
-		//Do the rest
-		//sleep(1);
 	}
 
 	//Wait for all threads to finish
@@ -351,7 +345,6 @@ int main(int argc, char *argv[]){
 		pthread_cond_destroy(&(msgs_avail[i]));
 	}
 
-	
 	if (mq_unlink(MQ_NAME) == -1){
 		perror("P: Failed to initialize closing message queue");
 	}
