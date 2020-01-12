@@ -13,26 +13,6 @@
 short end = 0;
 
 /*
-Function that represents worker thread.
-*/
-static void *thread_worker(void *arg){
-	while(!end){	
-		printf("Hello from thread!\n");
-		sleep(1);
-	}
-	return NULL;
-}
-
-/*
-Function for initializing shutdown on received signal.
-*/
-static void signal_handler(int sig, siginfo_t *info, void *context){
-	printf("SIGTERM received, initializing shutdown...\n");
-	end = 1;
-}
-
-
-/*
 #########################
 NODE BEGIN
 #########################
@@ -93,13 +73,83 @@ NODE END
 #########################
 */
 
+
+pthread_cond_t msgs_avail;
+pthread_mutex_t mutex_mq;
+
+void do_work(pthread_t thread_id, char* message){
+	int id;
+	int job_duration;
+	char* shm_job_name;
+	char* split;
+	//struct timespec t, thread_wake_limit;
+
+	split = strtok(message, " ");
+	id = atoi(split);
+	split = strtok(NULL, " ");
+	job_duration = atoi(split);
+
+	shm_job_name = strtok(NULL, " ");
+
+	printf("T%lu: ID: %d; DURATION: %d; NAME: %s\n", thread_id, id, job_duration, shm_job_name);
+
+}
+
+/*
+Function that represents worker thread.
+*/
+static void *thread_worker(void *arg){
+	pthread_t thread = pthread_self();
+	char* message;
+	char* buf_cpy;
+	char* duration_ptr;
+	int duration;
+
+	printf("Hello from thread %lu\n", thread);
+	while(1){
+		pthread_mutex_lock(&mutex_mq);
+		if (end && (job_count == 0)){
+			printf("%lu no jobs and end\n", thread);
+			pthread_mutex_unlock(&mutex_mq);
+			break;
+		}
+		while (job_count == 0){
+			printf("%lu Wait started\n", thread);
+			pthread_cond_wait(&msgs_avail, &mutex_mq);
+			printf("%lu Wait finished\n", thread);
+		}
+		message = remove_node();
+		--job_count;
+		buf_cpy = calloc(strlen(message) + 1, sizeof(char));
+		strncpy(buf_cpy, message, strlen(message));
+		duration_ptr = strtok(buf_cpy, " ");
+		duration_ptr = strtok(NULL, " ");
+		duration = atoi(duration_ptr);
+		total_jobs_duration -= duration;
+
+		pthread_mutex_unlock(&mutex_mq);
+		printf("%lu got message\n", thread);
+		free(buf_cpy);
+
+		do_work(thread, message);
+	}
+	return NULL;
+}
+
+/*
+Function for initializing shutdown on received signal.
+*/
+static void signal_handler(int sig, siginfo_t *info, void *context){
+	printf("SIGTERM received, initializing shutdown...\n");
+	end = 1;
+}
+
 int main(int argc, char *argv[]){
 	int thread_count;
 	int min_jobs_duration;
 	int i = 0;
 	int s; //for statuses
 	pthread_t *thread_ids;
-	pthread_cond_t msgs_avail;
 	struct sigaction sa;
 	mqd_t mq;
 	struct mq_attr mqattr;
@@ -118,8 +168,11 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 
+	printf("Arguments ok\n");
+
 	min_jobs_duration = atoi(argv[2]);
 	pthread_cond_init(&msgs_avail, NULL);
+	pthread_mutex_init(&mutex_mq, NULL);
 
 	//Set shutdown on SIGTERM
 	sa.sa_flags = SA_SIGINFO;
@@ -130,14 +183,17 @@ int main(int argc, char *argv[]){
 		perror("error on setting action for signal SIGTERM:\n");
 	}
 
+	printf("Shutdown set\n");
+
+	if (NAME == NULL || strlen(NAME) <= 0){
+		fprintf(stderr, "No message queue name defined!\n");
+		exit(1);
+	}
 	MQ_NAME = calloc(strlen(NAME) + 2, sizeof(char));
 	strncpy(MQ_NAME, "/\0", 2);
 	strncat(MQ_NAME, NAME, strlen(NAME));
 	//Setup message queue link
-	if (MQ_NAME == NULL || strlen(MQ_NAME) <= 0){
-		fprintf(stderr, "No message queue name defined!\n");
-		exit(1);
-	}
+
 
 	mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK);
 	//mq = mq_open(MQ_NAME, O_RDONLY | O_NONBLOCK | O_CREAT, 00600, NULL);
@@ -163,6 +219,8 @@ int main(int argc, char *argv[]){
 		perror("Failed to allocate memory for message buffer:\n");
 	}
 
+	printf("MEssage queue linked\n");
+
 	//Create needed amount of threads
 	thread_count = atoi(argv[1]);
 	printf("Dretvi: %d\n", thread_count);
@@ -179,6 +237,8 @@ int main(int argc, char *argv[]){
 		}
 	}
 
+	printf("THreads created\n");
+
 	clock_gettime(CLOCK_REALTIME, &t);
 	thread_wake_limit.tv_sec = t.tv_sec + 30;
 	thread_wake_limit.tv_nsec = t.tv_nsec;
@@ -193,6 +253,8 @@ int main(int argc, char *argv[]){
 				clock_gettime(CLOCK_REALTIME, &t);
 			}
 		} else {
+			printf("MEssage read\n");
+			pthread_mutex_lock(&mutex_mq);
 			add_node(buffer);
 			clock_gettime(CLOCK_REALTIME, &t);
 			thread_wake_limit.tv_sec = t.tv_sec + 30;
@@ -204,11 +266,15 @@ int main(int argc, char *argv[]){
 			duration_ptr = strtok(buf_cpy, " ");
 			duration_ptr = strtok(NULL, " ");
 			total_jobs_duration += atoi(duration_ptr);
+
+			pthread_mutex_unlock(&mutex_mq);
 			free(buf_cpy);
+			printf("Message added\n");
 		}
 		if ((job_count >= thread_count && total_jobs_duration >= min_jobs_duration)
 			 || (t.tv_sec >= thread_wake_limit.tv_sec && t.tv_nsec >= thread_wake_limit.tv_nsec)) {
 
+			printf("Condition met\n");
 			pthread_cond_broadcast(&msgs_avail);
 
 			clock_gettime(CLOCK_REALTIME, &t);
