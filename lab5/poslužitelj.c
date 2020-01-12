@@ -107,7 +107,7 @@ static void *thread_worker(void *arg){
 	char* duration_ptr;
 	int duration;
 
-	printf("Hello from thread %d\n", tid);
+	printf("Hello from worker %d\n", tid);
 	while(1){
 		pthread_mutex_lock(&mutex_mq);
 		if (end && (job_count == 0)){
@@ -181,10 +181,14 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 
+	thread_count = atoi(argv[1]);
 	min_jobs_duration = atoi(argv[2]);
 	msgs_avail = calloc(thread_count, sizeof(pthread_cond_t));
 	for (i = 0; i < thread_count; ++i){
-		pthread_cond_init(&(msgs_avail[i]), NULL);
+		if (pthread_cond_init(&(msgs_avail[i]), NULL) < 0){
+			perror("Error while initializing condition variables");
+			exit(1);
+		}
 	}
 	i = 0;
 	pthread_mutex_init(&mutex_mq, NULL);
@@ -233,8 +237,6 @@ int main(int argc, char *argv[]){
 	}
 
 	//Create needed amount of threads
-	thread_count = atoi(argv[1]);
-	printf("Dretvi: %d\n", thread_count);
 	thread_ids = calloc(thread_count, sizeof(pthread_t));	
 	if (thread_ids == NULL){
 		fprintf(stderr, "P: Failed to allocate memory for threads!\n");
