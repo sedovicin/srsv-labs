@@ -75,7 +75,7 @@ NODE END
 */
 
 
-pthread_cond_t msgs_avail;
+pthread_cond_t *msgs_avail;
 pthread_mutex_t mutex_mq;
 
 void do_work(pthread_t thread_id, char* message){
@@ -100,27 +100,28 @@ void do_work(pthread_t thread_id, char* message){
 Function that represents worker thread.
 */
 static void *thread_worker(void *arg){
+	int tid = *((int *) arg);
 	pthread_t thread = pthread_self();
 	char* message;
 	char* buf_cpy;
 	char* duration_ptr;
 	int duration;
 
-	printf("Hello from thread %lu\n", thread);
+	printf("Hello from thread %d\n", tid);
 	while(1){
 		pthread_mutex_lock(&mutex_mq);
 		if (end && (job_count == 0)){
-			printf("R%lu: no jobs and end\n", thread);
+			printf("R%d: no jobs and end\n", tid);
 			pthread_mutex_unlock(&mutex_mq);
 			break;
 		}
 		while (job_count == 0 && !end){
-			printf("R%lu: Wait started\n", thread);
-			pthread_cond_wait(&msgs_avail, &mutex_mq);
-			printf("R%lu: Wait finished\n", thread);
+			printf("R%d: Wait started\n", tid);
+			pthread_cond_wait(&(msgs_avail[tid]), &mutex_mq);
+			printf("R%d: Wait finished\n", tid);
 		}
 		if (end && (job_count == 0)){
-			printf("%lu no jobs and end\n", thread);
+			printf("%d no jobs and end\n", tid);
 			pthread_mutex_unlock(&mutex_mq);
 			break;
 		}
@@ -134,25 +135,30 @@ static void *thread_worker(void *arg){
 		total_jobs_duration -= duration;
 
 		pthread_mutex_unlock(&mutex_mq);
-		printf("R%lu: got message\n", thread);
+		printf("R%d: got message\n", tid);
 		free(buf_cpy);
 
 		do_work(thread, message);
 	}
 	return NULL;
 }
-
+int thread_count;
 /*
 Function for initializing shutdown on received signal.
 */
 static void signal_handler(int sig, siginfo_t *info, void *context){
+	int i;
 	printf("SIGTERM received, initializing shutdown...\n");
 	end = 1;
-	pthread_cond_broadcast(&msgs_avail);
+	pthread_mutex_unlock(&mutex_mq);
+	for (i = 0; i < thread_count; ++i){
+		pthread_cond_signal(&(msgs_avail[i]));
+	}
+	//pthread_cond_broadcast(&msgs_avail);
 }
 
 int main(int argc, char *argv[]){
-	int thread_count;
+	
 	int min_jobs_duration;
 	int i = 0;
 	int s; //for statuses
@@ -176,7 +182,11 @@ int main(int argc, char *argv[]){
 	}
 
 	min_jobs_duration = atoi(argv[2]);
-	pthread_cond_init(&msgs_avail, NULL);
+	msgs_avail = calloc(thread_count, sizeof(pthread_cond_t));
+	for (i = 0; i < thread_count; ++i){
+		pthread_cond_init(&(msgs_avail[i]), NULL);
+	}
+	i = 0;
 	pthread_mutex_init(&mutex_mq, NULL);
 
 	//Set shutdown on SIGTERM
@@ -231,7 +241,9 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 	for (i = 0; i < thread_count; ++i){
-		s = pthread_create(&thread_ids[i], NULL, &thread_worker, NULL);
+		int *id = calloc(1, sizeof(int));
+		*id = i;
+		s = pthread_create(&thread_ids[i], NULL, &thread_worker, id);
 		if (s != 0){
 			perror("P: Failed to create thread");
 			exit(s);
@@ -278,10 +290,13 @@ int main(int argc, char *argv[]){
 			 || (t.tv_sec >= thread_wake_limit.tv_sec && t.tv_nsec >= thread_wake_limit.tv_nsec)) {
 
 			printf("Condition met\n");
-			pthread_cond_broadcast(&msgs_avail);
+			for (i = 0; i < thread_count; ++i){
+				pthread_cond_signal(&(msgs_avail[i]));
+			}
+			//pthread_cond_broadcast(&msgs_avail);
 
 			clock_gettime(CLOCK_REALTIME, &t);
-			thread_wake_limit.tv_sec = t.tv_sec + 30;
+			thread_wake_limit.tv_sec = t.tv_sec + WAIT_TIME;
 			thread_wake_limit.tv_nsec = t.tv_nsec;
 		}
 		//Do the rest
@@ -297,7 +312,10 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	pthread_cond_destroy(&msgs_avail);
+	for (i = 0; i < thread_count; ++i){
+		pthread_cond_destroy(&(msgs_avail[i]));
+	}
+
 	
 	if (mq_unlink(MQ_NAME) == -1){
 		perror("P: Failed to initialize closing message queue");
