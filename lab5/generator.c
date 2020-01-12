@@ -46,14 +46,14 @@ int main(int argc, char *argv[]){
 
 	//Get arguments values
 	if (argc < 3){
-		fprintf(stderr, "Two arguments required!\n");
+		fprintf(stderr, "G: Two arguments required!\n");
 		exit(1);
 	}
 	jobs_count = atoi(argv[1]);
 	max_job_duration = atoi(argv[2]);
 	
 	if (NAME == NULL || strlen(NAME) <= 0){
-		fprintf(stderr, "No message queue name defined!\n");
+		fprintf(stderr, "G: No message queue name defined!\n");
 		exit(1);
 	}
 	
@@ -70,12 +70,11 @@ int main(int argc, char *argv[]){
 		create_job(i, max_job_duration);
 	}
 
-	printf("%d %d %d\n", jobs_count, max_job_duration, id_start);
 	sleep(1);
 
 	shutdown();
 	
-	printf("Bye!\n");
+	printf("G: Bye!\n");
 	return 0;
 }
 
@@ -91,16 +90,16 @@ void setup_message_queue(char *NAME){
 	if (mq == (mqd_t) -1){ //Already exists, open it.
 		mq = mq_open(MQ_NAME, O_RDWR);
 		if (mq == (mqd_t) -1){
-			perror("Failed to open message queue:\n");
+			perror("G: Failed to open message queue");
 			exit(1);
 		} else {
-			printf("Opened message queue.\n");
+			printf("G: Opened message queue.\n");
 		}
 	} else { //Not exists, create one
-		printf("Created message queue.\n");
+		printf("G: Created message queue.\n");
 	}
 	if (mq_getattr(mq, &mq_attr) == -1){
-		perror("Failed to get attribute of message queue:\n");
+		perror("G: Failed to get attribute of message queue");
 	}
 }
 
@@ -115,7 +114,7 @@ void setup_shared_memory_for_id(char *NAME) {
 	if (shm == -1){ //Already exists, try to open it
 		shm = shm_open(SHM_NAME, O_RDWR, 00600);
 		if (shm == -1){
-			perror("Failed to open shared memory:\n");
+			perror("G: Failed to open shared memory");
 			exit(1);
 		} else {
 			shm_id = mmap(NULL, sizeof(struct Shm_shared), PROT_READ | PROT_WRITE, MAP_SHARED, shm, 0);
@@ -171,7 +170,7 @@ void create_job(int id, int max_job_duration) {
 	if (shm_job == -1){
 		shm_job = shm_open(JOB_NAME, O_RDWR, 00600);
 		if (shm_job == -1){
-			perror("Error while creating shared memory for job:\n");
+			perror("G: Error while creating shared memory for job:\n");
 		}
 	} else {
 		ftruncate(shm_job, sizeof(int) * job_duration);
@@ -179,25 +178,25 @@ void create_job(int id, int max_job_duration) {
 
 	shm_job_content = (int *)mmap(NULL, sizeof(int) * job_duration, PROT_READ | PROT_WRITE, MAP_SHARED, shm_job, 0);
 	if (shm_job_content == (void *) -1){
-		perror("Failed to map job shared memory:\n");
+		perror("G: Failed to map job shared memory");
 	}
 
 	for (i = 0; i < job_duration; ++i){
 		shm_job_content[i] = random_numbers[i];
 	}
 
-	printf("%d: %s ; ", id, descriptor);
+	printf("G: job: %s [", descriptor);
 	for (i = 0; i < job_duration; ++i){
-		printf("%d ", shm_job_content[i]);
+		printf(" %d", shm_job_content[i]);
 	}
-	printf("\n");
+	printf(" ]\n");
 
 	if (mq_send(mq, descriptor, strlen(descriptor), 0) == -1){
-		perror("Error while sending descriptor to message queue:\n");
+		perror("G: Error while sending descriptor to message queue");
 	}
 
 	if (munmap(shm_job_content, sizeof(int) * job_duration) == -1){
-		perror("Failed to unmap shared memory for job:\n");
+		perror("G: Failed to unmap shared memory for job");
 	}
 	sleep(1);
 
@@ -208,11 +207,11 @@ void create_job(int id, int max_job_duration) {
 
 void shutdown(void){
 	if (munmap(shm_id, sizeof(struct Shm_shared)) == -1){
-		perror("Failed to unmap shared memory:\n");
+		perror("G: Failed to unmap shared memory");
 	}
 	if (shm_unlink(SHM_NAME) == -1){
 		if (errno != ENOENT){
-			perror("Failed to initialize closing shared memory:\n");
+			perror("G: Failed to initialize closing shared memory");
 		}
 	}
 
