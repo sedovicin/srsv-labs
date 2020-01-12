@@ -7,6 +7,7 @@
 #include<errno.h>
 #include<string.h>
 #include<time.h>
+#include<sys/mman.h>
 
 #define ENV_VAR_NAME "SRSV_LAB5"
 #define WAIT_TIME 10
@@ -37,6 +38,7 @@ void add_node(char *message_to_add){
 	strncpy(new, message_to_add, strlen(message_to_add));
 
 	new_node -> message = new;
+	new_node -> next = NULL;
 	if (head == NULL){ //list empty
 		head = new_node;
 		tail = new_node;
@@ -59,8 +61,9 @@ char* remove_node(){
 	}
 
 	head = first_node -> next;
-	if (first_node -> next == NULL){ //only one (this) entry in list
+	if (first_node->next == NULL){ //only one (this) entry in list
 		tail = NULL;
+		head = NULL;
 	}
 
 	message = first_node -> message;
@@ -78,12 +81,15 @@ NODE END
 pthread_cond_t *msgs_avail;
 pthread_mutex_t mutex_mq;
 
-void do_work(pthread_t thread_id, char* message){
+void do_work(int tid, char* message){
 	int id;
 	int job_duration;
 	char* shm_job_name;
 	char* split;
-	//struct timespec t, thread_wake_limit;
+	int shm_job;
+	int *shm_job_content;
+	int i;
+	struct timespec t, t_second;
 
 	split = strtok(message, " ");
 	id = atoi(split);
@@ -92,8 +98,36 @@ void do_work(pthread_t thread_id, char* message){
 
 	shm_job_name = strtok(NULL, " ");
 
-	printf("R%lu: ID: %d; DURATION: %d; NAME: %s\n", thread_id, id, job_duration, shm_job_name);
+	printf("R%d: ID: %d; DURATION: %d; NAME: %s\n", tid, id, job_duration, shm_job_name);
 
+	shm_job = shm_open(shm_job_name, O_RDWR, 00600);
+	if (shm_job == -1){
+		fprintf(stderr, "R%d: Error while opening shared memory for job: ", tid);
+		perror("");
+	}
+	shm_job_content = (int *)mmap(NULL, sizeof(int) * job_duration, PROT_READ | PROT_WRITE, MAP_SHARED, shm_job, 0);
+	if (shm_job_content == (void *) -1){
+		fprintf(stderr, "R%d: Failed to map job shared memory: ", tid);
+		perror("");
+	}
+
+	for (i = 0; i < job_duration; ++i){
+		printf("R%d: id:%d processing data: %d (%d/%d)\n", tid, id, shm_job_content[i], i+1, job_duration);
+		clock_gettime(CLOCK_REALTIME, &t);
+		t_second.tv_sec = t.tv_sec + 1;
+		t_second.tv_nsec = t.tv_nsec;
+
+		while (!(t.tv_sec >= t_second.tv_sec && t.tv_nsec >= t_second.tv_nsec)){
+			clock_gettime(CLOCK_REALTIME, &t);
+		}
+	}
+
+	if (munmap(shm_job_content, sizeof(int) * job_duration) == -1){
+		perror("G: Failed to unmap shared memory for job");
+	}
+	if (shm_unlink(shm_job_name) == -1){
+		perror("G: Failed to unlink shared memory for job");
+	}
 }
 
 /*
@@ -111,7 +145,6 @@ static void *thread_worker(void *arg){
 	while(1){
 		pthread_mutex_lock(&mutex_mq);
 		if (end && (job_count == 0)){
-			printf("R%d: no jobs and end\n", tid);
 			pthread_mutex_unlock(&mutex_mq);
 			break;
 		}
@@ -121,7 +154,6 @@ static void *thread_worker(void *arg){
 			printf("R%d: Wait finished\n", tid);
 		}
 		if (end && (job_count == 0)){
-			printf("%d no jobs and end\n", tid);
 			pthread_mutex_unlock(&mutex_mq);
 			break;
 		}
@@ -138,7 +170,7 @@ static void *thread_worker(void *arg){
 		printf("R%d: got message\n", tid);
 		free(buf_cpy);
 
-		do_work(thread, message);
+		do_work(tid, message);
 	}
 	return NULL;
 }
@@ -286,6 +318,7 @@ int main(int argc, char *argv[]){
 
 			pthread_mutex_unlock(&mutex_mq);
 			free(buf_cpy);
+			memset(buffer, 0, strlen(buffer));
 			printf("Message added\n");
 		}
 		if ((job_count >= thread_count && total_jobs_duration >= min_jobs_duration)

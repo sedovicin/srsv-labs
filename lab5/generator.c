@@ -209,11 +209,11 @@ void shutdown(void){
 	if (munmap(shm_id, sizeof(struct Shm_shared)) == -1){
 		perror("G: Failed to unmap shared memory");
 	}
-	if (shm_unlink(SHM_NAME) == -1){
-		if (errno != ENOENT){
-			perror("G: Failed to initialize closing shared memory");
-		}
-	}
+	//if (shm_unlink(SHM_NAME) == -1){
+	//	if (errno != ENOENT){
+	//		perror("G: Failed to initialize closing shared memory");
+	//	}
+	//}
 
 	free(MQ_NAME);
 	free(SHM_NAME);
