@@ -40,6 +40,7 @@ int main(int argc, char *argv[]){
 	int id_start = 0;
 	int i;
 	struct timespec t;
+	struct sched_param param;
 
 	clock_gettime(CLOCK_REALTIME, &t);
 	srand(t.tv_nsec);
@@ -51,6 +52,9 @@ int main(int argc, char *argv[]){
 	}
 	jobs_count = atoi(argv[1]);
 	max_job_duration = atoi(argv[2]);
+
+	param.sched_priority = 50;
+	pthread_setschedparam(pthread_self(), SCHED_RR, &param);
 	
 	if (NAME == NULL || strlen(NAME) <= 0){
 		fprintf(stderr, "G: No message queue name defined!\n");

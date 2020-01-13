@@ -203,6 +203,8 @@ int main(int argc, char *argv[]){
 	char* buf_cpy;
 	char* duration_ptr;
 
+	struct sched_param param, thread_param;
+
 	struct timespec t, thread_wake_limit;
 
 	//Check if arguments are here
@@ -211,6 +213,8 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 
+	param.sched_priority = 60;
+	pthread_setschedparam(pthread_self(), SCHED_RR, &param);
 	thread_count = atoi(argv[1]);
 	min_jobs_duration = atoi(argv[2]);
 	msgs_avail = calloc(thread_count, sizeof(pthread_cond_t));
@@ -279,6 +283,8 @@ int main(int argc, char *argv[]){
 			perror("P: Failed to create thread");
 			exit(s);
 		}
+		thread_param.sched_priority = 40;
+		pthread_setschedparam(thread_ids[i], SCHED_RR, &thread_param);
 	}
 
 	clock_gettime(CLOCK_REALTIME, &t);
@@ -291,6 +297,7 @@ int main(int argc, char *argv[]){
 		if (mbytesread == -1){
 			if (errno == EAGAIN){
 				clock_gettime(CLOCK_REALTIME, &t);
+				//sleep(1);
 			}
 			else {
 				perror("P: Error while reading message queue");
