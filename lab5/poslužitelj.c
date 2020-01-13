@@ -10,7 +10,7 @@
 #include<sys/mman.h>
 
 #define ENV_VAR_NAME "SRSV_LAB5"
-#define WAIT_TIME 10
+#define WAIT_TIME 30
 
 short end = 0;
 
