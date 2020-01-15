@@ -81,6 +81,9 @@ NODE END
 pthread_cond_t *msgs_avail;
 pthread_mutex_t mutex_mq;
 
+mqd_t mqf;
+pthread_mutex_t mutex_mqf;
+
 void do_work(int tid, char* message){
 	int id;
 	int job_duration;
@@ -89,7 +92,9 @@ void do_work(int tid, char* message){
 	int shm_job;
 	int *shm_job_content;
 	int i;
-	struct timespec t, t_second;
+	struct timespec t, t_second, t_curr;
+
+	char *finished_message, *string_time;
 
 	split = strtok(message, " ");
 	id = atoi(split);
@@ -128,6 +133,23 @@ void do_work(int tid, char* message){
 	if (shm_unlink(shm_job_name) == -1){
 		perror("G: Failed to unlink shared memory for job");
 	}
+
+	finished_message = calloc(10 + 100, sizeof(char));
+	clock_gettime(CLOCK_REALTIME, &t_curr);
+	string_time = ctime(&(t_curr.tv_sec));
+	snprintf(finished_message, 11, "%d ", id);
+	strncat(finished_message, string_time, 80);
+	
+	printf("R%d: FINISHED MESSAGE: %s\n", tid, finished_message);
+	//Send message to finished mesage queue
+	pthread_mutex_lock(&mutex_mqf);
+	
+	if (mq_send(mqf, finished_message, strlen(finished_message), 0) == -1){
+		perror("G: Error while sending log to finished message queue");
+	}
+
+	pthread_mutex_unlock(&mutex_mqf);
+	free(finished_message);
 }
 
 /*
@@ -202,6 +224,7 @@ int main(int argc, char *argv[]){
 	char* MQ_NAME;
 	char* buf_cpy;
 	char* duration_ptr;
+	char* MQF_NAME;
 
 	struct sched_param param, thread_param;
 
@@ -268,6 +291,33 @@ int main(int argc, char *argv[]){
 	if (buffer == NULL){
 		perror("P: Failed to allocate memory for message buffer");
 	}
+
+	//Open log message queue
+	MQF_NAME = calloc(strlen(NAME) + 2, sizeof(char));
+	strncpy(MQF_NAME, "/\0", 2);
+	strncat(MQF_NAME, NAME, strlen(NAME));
+	strncat(MQF_NAME, "-log\0", 5);
+
+	pthread_mutex_init(&mutex_mqf, NULL);
+	mqf = mq_open(MQF_NAME, O_RDWR);
+	if (mqf == (mqd_t) -1){
+		while (errno == ENOENT && (++i < 10)){
+			mqf = mq_open(MQF_NAME, O_RDWR);
+			if (mqf != (mqd_t) -1){
+				break;
+			}
+			printf("Could not open finished message queue. Trying again...\n");
+			sleep(1);
+		}
+		if (mqf == (mqd_t) -1){
+			perror("P: Failed to open finished message queue");
+			exit(1);
+		}
+	} else {
+		printf("Opened finished message queue.\n");
+	}
+
+	
 
 	//Create needed amount of threads
 	thread_ids = calloc(thread_count, sizeof(pthread_t));	

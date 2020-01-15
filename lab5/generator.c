@@ -16,6 +16,11 @@ struct mq_attr mq_attr;
 char* MQ_NAME;
 void setup_message_queue(char *NAME);
 
+mqd_t mqf;
+struct mq_attr mqf_attr;
+char* MQF_NAME;
+void setup_finished_message_queue(char *NAME);
+
 struct Shm_shared {
 	pthread_mutex_t mutex;
 	int last_given_id;
@@ -62,6 +67,7 @@ int main(int argc, char *argv[]){
 	}
 	
 	setup_message_queue(NAME);
+	setup_finished_message_queue(NAME);
 	setup_shared_memory_for_id(NAME);
 
 	//mq_unlink(MQ_NAME);
@@ -104,6 +110,35 @@ void setup_message_queue(char *NAME){
 	}
 	if (mq_getattr(mq, &mq_attr) == -1){
 		perror("G: Failed to get attribute of message queue");
+	}
+}
+
+
+void setup_finished_message_queue(char *NAME){
+	struct mq_attr mqf_attr2;
+
+	MQF_NAME = calloc(strlen(NAME) + 2, sizeof(char));
+	strncpy(MQF_NAME, "/\0", 2);
+	strncat(MQF_NAME, NAME, strlen(NAME));
+	strncat(MQF_NAME, "-log\0", 5);
+
+	mqf_attr2.mq_flags = 0;
+	mqf_attr2.mq_maxmsg = 20;
+	mqf_attr2.mq_msgsize = 8192;
+	mqf = mq_open(MQF_NAME, O_RDWR | O_CREAT | O_EXCL, 00600, &mqf_attr2);
+	if (mqf == (mqd_t) -1){ //Already exists, open it.
+		mqf = mq_open(MQF_NAME, O_RDWR);
+		if (mqf == (mqd_t) -1){
+			perror("G: Failed to open finished message queue");
+			exit(1);
+		} else {
+			printf("G: Opened finished message queue.\n");
+		}
+	} else { //Not exists, create one
+		printf("G: Created finished message queue.\n");
+	}
+	if (mq_getattr(mqf, &mqf_attr) == -1){
+		perror("G: Failed to get attribute of finished message queue");
 	}
 }
 
